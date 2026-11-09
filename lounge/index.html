@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=3" />
+  <link rel="stylesheet" href="css/style.css?v=5" />
 </head>
 <body>
   <canvas id="scene" aria-label="유림거사 서재 3D 공간"></canvas>
@@ -42,9 +42,16 @@
         <label>이름(별명)
           <input name="name" maxlength="12" placeholder="손님" />
         </label>
-        <label>생년월일 (양력)
-          <input name="birth" type="date" min="1900-01-01" max="2100-12-31" />
-        </label>
+        <fieldset class="birth">
+          <legend>생년월일 (양력)</legend>
+          <div class="birth__row">
+            <label class="birth__cell birth__cell--y"><input name="by" type="text" inputmode="numeric" maxlength="10" placeholder="1987" autocomplete="bday-year" aria-label="태어난 해 4자리" /><span>년</span></label>
+            <label class="birth__cell"><input name="bm" type="text" inputmode="numeric" maxlength="2" placeholder="04" autocomplete="bday-month" aria-label="태어난 달 2자리" /><span>월</span></label>
+            <label class="birth__cell"><input name="bd" type="text" inputmode="numeric" maxlength="2" placeholder="21" autocomplete="bday-day" aria-label="태어난 날 2자리" /><span>일</span></label>
+          </div>
+          <input name="birth" type="hidden" />
+          <p class="birth__msg" id="birth-msg" role="alert" hidden></p>
+        </fieldset>
         <button class="btn btn--primary btn--lg" type="submit">서재로 들어가기</button>
         <button id="intro-skip" class="btn btn--ghost" type="button">입력 없이 둘러보기</button>
       </form>
@@ -86,6 +93,6 @@
   </section>
 
   <noscript><p class="noscript">이 공간은 자바스크립트가 필요해요. <a href="https://yurimfortune.com">홈페이지로 가기</a></p></noscript>
-  <script type="module" src="js/main.js?v=3"></script>
+  <script type="module" src="js/main.js?v=5"></script>
 </body>
 </html>

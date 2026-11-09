@@ -108,6 +108,13 @@ body:not(.is-started) .bubble, body:not(.is-started) .nametag { display: none !i
   min-height: 46px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
   background: rgba(255, 255, 255, 0.05); color: var(--ink); color-scheme: dark;
 }
+.birth { margin: 0; padding: 0; border: 0; min-width: 0; }
+.birth legend { padding: 0; margin-bottom: 6px; font-size: 13px; color: var(--ink-dim); }
+.birth__row { display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 6px; }
+.intro__form .birth__cell { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--ink-dim); font-size: 14px; }
+.birth__cell input { flex: 1; min-width: 0; width: 100%; padding-left: 4px; padding-right: 4px; text-align: center; font-size: 17px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
+.birth__cell input.is-bad { border-color: #e2725b; }
+.birth__msg { margin: 6px 0 0; color: #f0a08f; font-size: 13px; }
 .intro__form input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 
 /* ── 대화창 ── */

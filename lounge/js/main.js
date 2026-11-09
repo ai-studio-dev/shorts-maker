@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=3';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=3';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=5';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=5';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=3';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=3';
+} from './saju.js?v=5';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=5';
 
 const $ = (s) => document.querySelector(s);
 
@@ -430,14 +430,22 @@ let started = false;
 function openProfile() {
   closeDialog();
   form.name.value = profile.name || '';
-  form.birth.value = profile.birth || '';
+  fillBirth(profile.birth);
+  birthError('');
   intro.classList.toggle('is-edit', started);
   intro.hidden = false;
 }
 function enter(withProfile) {
   if (withProfile) {
-    const birth = form.birth.value.trim();
-    if (birth && !iljuFromBirth(birth)) { form.birth.setCustomValidity('1900~2100년 사이 날짜를 넣어주세요'); form.reportValidity(); return; }
+    const birth = readBirth();
+    form.birth.value = birth;
+    if (birth) {
+      const [y, mo, d] = birthBoxes.map((b) => b.value.trim());
+      if (y.length !== 4) return birthError('태어난 해를 4자리로 넣어주세요. 예: 1987', form.by);
+      if (!mo || +mo < 1 || +mo > 12) return birthError('월은 01~12 사이로 넣어주세요.', form.bm);
+      if (!d || +d < 1 || +d > 31) return birthError('일은 01~31 사이로 넣어주세요.', form.bd);
+      if (!isRealDate(birth)) return birthError('달력에 없는 날짜예요. 다시 확인해 주세요.', null);
+    }
     profile = { name: form.name.value.replace(/[<>&"']/g, '').trim().slice(0, 12), birth };
     saveProfile(profile);
   }
@@ -449,7 +457,69 @@ function enter(withProfile) {
     setTimeout(() => { if (!path.length) talkHint(); }, 2600);
   }
 }
-form.birth.addEventListener('input', () => form.birth.setCustomValidity(''));
+// 생년월일: 연도 4칸 · 월 2칸 · 일 2칸 (휴대폰 달력에서 연도를 거슬러 올라가지 않아도 되게)
+const birthBoxes = [form.by, form.bm, form.bd];
+const birthMsg = $('#birth-msg');
+const pad2 = (s) => (s.length === 1 ? '0' + s : s);
+function readBirth() {
+  const [y, mo, d] = birthBoxes.map((b) => b.value.trim());
+  if (!y && !mo && !d) return '';
+  return `${y}-${pad2(mo)}-${pad2(d)}`;
+}
+function fillBirth(s) {
+  const [y = '', mo = '', d = ''] = (s || '').split('-');
+  form.by.value = y; form.bm.value = mo; form.bd.value = d;
+}
+function isRealDate(s) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s) || !iljuFromBirth(s)) return false;
+  const [y, mo, d] = s.split('-').map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && dt <= new Date();
+}
+function birthError(text, box) {
+  birthMsg.textContent = text;
+  birthMsg.hidden = !text;
+  birthBoxes.forEach((b) => b.classList.toggle('is-bad', !!text && (!box || b === box)));
+  if (box) box.focus();
+}
+birthBoxes.forEach((box, i) => {
+  box.addEventListener('input', () => {
+    birthError('');
+    const max = [4, 2, 2][i];
+    let digits = box.value.replace(/\D/g, '');
+    // 연도 칸에 8자리를 한 번에 붙여넣으면 세 칸으로 나눠 넣기
+    if (i === 0 && digits.length > 4) {
+      const all = digits.slice(0, 8);
+      form.by.value = all.slice(0, 4); form.bm.value = all.slice(4, 6); form.bd.value = all.slice(6, 8);
+      (all.length >= 8 ? form.bd : all.length > 6 ? form.bd : form.bm).focus();
+      return;
+    }
+    if (digits.length > max) digits = digits.slice(0, max);
+    if (box.value !== digits) box.value = digits;
+    // 칸이 다 차면 다음 칸으로
+    if (digits.length === max && birthBoxes[i + 1]) {
+      birthBoxes[i + 1].focus();
+      birthBoxes[i + 1].select();
+    }
+  });
+  box.addEventListener('keydown', (e) => {
+    // 빈 칸에서 지우기를 누르면 앞 칸으로
+    if (e.key === 'Backspace' && !box.value && birthBoxes[i - 1]) {
+      e.preventDefault();
+      const prev = birthBoxes[i - 1];
+      prev.focus();
+      prev.value = prev.value.slice(0, -1);
+    }
+    // 점·빗금·띄어쓰기를 치면 다음 칸으로 (예: 1987.4.21)
+    if (['.', '/', ' ', '-'].includes(e.key) && box.value && birthBoxes[i + 1]) {
+      e.preventDefault();
+      if (i > 0) box.value = pad2(box.value);
+      birthBoxes[i + 1].focus();
+    }
+  });
+  // 월·일은 칸을 벗어날 때 한 자리면 0을 붙임 (4 → 04)
+  if (i > 0) box.addEventListener('blur', () => { if (box.value.length === 1) box.value = pad2(box.value); });
+});
 form.addEventListener('submit', (e) => { e.preventDefault(); enter(true); });
 $('#intro-skip').addEventListener('click', () => enter(false));
 $('#hud-ilju').addEventListener('click', () => (started ? approach('ilju') : null));
@@ -467,7 +537,7 @@ applyLook();
 if (new URLSearchParams(location.search).has('debug')) window.__lounge = { player, approach, get path() { return path; } };
 if (profile.name || profile.birth) {
   form.name.value = profile.name || '';
-  form.birth.value = profile.birth || '';
+  fillBirth(profile.birth);
 }
 
 // ── 루프 ─────────────────────────────────────────
