@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildPerson } from './avatar.js';
-import { SAJU_TOPICS } from './config.js';
+import { buildPerson } from './avatar.js?v=3';
+import { SAJU_TOPICS } from './config.js?v=3';
 
 // ────────────────────────────────────────────────
 // 「유림거사 서재」 월드
@@ -17,8 +17,9 @@ export const WALK_RECTS = [
   [-7.5, -13.3, 7.5, -4.0],  // 서재 마루
 ];
 export const OBSTACLES = [
-  [-4.3, -11.0, -1.7, -8.6], // 유림거사 서안 + 자리
-  [-7.3, -13.4, -0.6, -12.95], // 분야별 진열장(뒷벽)
+  [-5.9, -11.0, -0.1, -8.6], // 유림거사 긴 서안(분야별 소품) + 자리 + 병풍
+  [-7.55, -7.95, -7.0, -5.75], // 왼쪽 진열대(종합·기간 운세)
+  [-4.7, 0.15, -2.5, 1.05],  // 마당 무료 좌판
   [2.45, -11.2, 4.55, -8.3], // 타로 테이블
   [-7.6, -11.8, -6.3, -8.2], // 책장
   [-4.3, -4.5, -3.7, -3.9],  // 앞 기둥
@@ -106,6 +107,22 @@ const maruTex = () => canvasTex(512, 512, (g, w, h) => {
     g.fillRect(i * 32, r() * h, 32, 2);
   }
 }, [4, 3]);
+
+const screenTex = () => canvasTex(768, 384, (g, w, h) => {
+  g.fillStyle = '#e9e0c9'; g.fillRect(0, 0, w, h);
+  const r = rand(5);
+  for (let layer = 0; layer < 3; layer++) { // 수묵 산수
+    g.fillStyle = `rgba(40,44,48,${0.18 + layer * 0.16})`;
+    g.beginPath(); g.moveTo(0, h);
+    for (let x = 0; x <= w; x += 24) {
+      g.lineTo(x, h * (0.45 + layer * 0.14) - Math.abs(Math.sin(x / (70 + layer * 30) + layer)) * (90 - layer * 20) - r() * 10);
+    }
+    g.lineTo(w, h); g.fill();
+  }
+  g.fillStyle = 'rgba(176,48,40,0.85)'; g.fillRect(w - 70, 30, 30, 30); // 낙관
+  g.strokeStyle = '#6b4a2a'; g.lineWidth = 6;
+  for (let i = 1; i < 6; i++) { g.beginPath(); g.moveTo(i * w / 6, 0); g.lineTo(i * w / 6, h); g.stroke(); }
+});
 
 const latticeTex = () => canvasTex(256, 192, (g, w, h) => {
   g.fillStyle = '#ffd99a'; g.fillRect(0, 0, w, h);
@@ -235,9 +252,19 @@ export function buildWorld(scene, today) {
   scene.add(yard);
 
   // 골목 담장
-  scene.add(wallSegment(18.4, false, -3.3, 13.2), wallSegment(18.4, false, 3.3, 13.2));
+  const alleyWalls = [wallSegment(18.4, false, -3.3, 13.2), wallSegment(18.4, false, 3.3, 13.2)];
   // 마당 담장
-  scene.add(wallSegment(6.3, true, -6.3, 4.3), wallSegment(6.3, true, 6.3, 4.3));
+  // 골목 담장 · 마당 앞(남쪽) 담장 — 마당 안에 있을 때 카메라를 가리지 않도록 대문과 함께 반투명
+  const yardFront = [...alleyWalls, wallSegment(6.3, true, -6.3, 4.3), wallSegment(6.3, true, 6.3, 4.3)];
+  for (const seg of yardFront) {
+    seg.traverse((m) => {
+      if (!m.isMesh) return;
+      m.material = m.material.clone();
+      m.material.transparent = true;
+      gateFade.push(m.material);
+    });
+    scene.add(seg);
+  }
   scene.add(wallSegment(8.6, false, -9.3, 0), wallSegment(8.6, false, 9.3, 0));
 
   // 골목 등롱
@@ -289,8 +316,11 @@ export function buildWorld(scene, today) {
   hall.add(box(4.0, 0.24, 0.6, '#6b645b', 0, 0.12, -3.6)); // 디딤돌
 
   const pillarMat = std('#6a3b22');
+  // 앞쪽 가운데 기둥은 서재 안에서 소품을 가리지 않도록 지붕과 함께 투명해집니다
+  const frontPillarMat = std('#6a3b22', { transparent: true, opacity: 1 });
+  fadeables.push(frontPillarMat);
   for (const [x, z] of [[-8, -4.2], [-4, -4.2], [4, -4.2], [8, -4.2], [-8, -13.8], [8, -13.8]]) {
-    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 3.2, 10), pillarMat);
+    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.17, 0.19, 3.2, 10), Math.abs(x) === 4 ? frontPillarMat : pillarMat);
     p.position.set(x, PLATFORM_H + 1.6, z); p.castShadow = true;
     hall.add(p);
   }
@@ -346,15 +376,20 @@ export function buildWorld(scene, today) {
     hall.add(post, l);
   }
 
-  // 유림거사 자리: 서안 + 서책
+  // 유림거사 자리: 병풍 + 긴 서안(가운데 서책, 양옆에 분야별 소품) — 손님은 앞에서 바로 고릅니다
   {
     const sx = -3.0;
-    hall.add(box(2.2, 0.08, 1.0, '#4a2c1c', sx, PLATFORM_H + 0.42, -9.3)); // 상판
-    for (const dx of [-0.95, 0.95]) for (const dz of [-0.38, 0.38]) hall.add(box(0.1, 0.38, 0.1, '#3a2216', sx + dx, PLATFORM_H + 0.19, -9.3 + dz));
-    hall.add(box(0.7, 0.05, 0.5, '#efe6d0', sx - 0.2, PLATFORM_H + 0.49, -9.25)); // 서책
-    hall.add(box(0.28, 0.05, 0.4, '#1a1a1a', sx + 0.6, PLATFORM_H + 0.49, -9.35)); // 벼루
+    const scr = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), std('#ffffff', { map: screenTex() }));
+    scr.position.set(sx, PLATFORM_H + 0.95, -12.4);
+    hall.add(scr);
+    hall.add(box(3.5, 0.08, 0.1, '#4a2c1c', sx, PLATFORM_H + 1.82, -12.4));
+    hall.add(box(5.6, 0.08, 1.0, '#4a2c1c', sx, PLATFORM_H + 0.42, -9.3)); // 상판
+    hall.add(box(5.6, 0.05, 0.06, '#d8b56a', sx, PLATFORM_H + 0.44, -8.79, { metalness: 0.5, roughness: 0.4 })); // 앞 테두리
+    for (const dx of [-2.7, -0.6, 0.6, 2.7]) for (const dz of [-0.38, 0.38]) hall.add(box(0.1, 0.38, 0.1, '#3a2216', sx + dx, PLATFORM_H + 0.19, -9.3 + dz));
+    hall.add(box(0.7, 0.05, 0.5, '#efe6d0', sx, PLATFORM_H + 0.49, -9.45)); // 서책
+    hall.add(box(0.28, 0.05, 0.4, '#1a1a1a', sx + 0.55, PLATFORM_H + 0.49, -9.55)); // 벼루
     const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.05, 0.08, 10), std('#dfe6e0'));
-    cup.position.set(sx + 0.75, PLATFORM_H + 0.5, -9.0); hall.add(cup);
+    cup.position.set(sx - 0.5, PLATFORM_H + 0.5, -9.6); hall.add(cup);
     const cushion = box(0.9, 0.12, 0.9, '#7b2f2a', sx, PLATFORM_H + 0.06, -10.4);
     hall.add(cushion);
   }
@@ -401,23 +436,56 @@ export function buildWorld(scene, today) {
     hall.add(candleLight);
     hall.add(box(0.9, 0.12, 0.9, '#3a2a55', tx, PLATFORM_H + 0.06, -10.5)); // 방석
   }
-  // 분야별 진열장(사방탁자) — 유림거사 뒤 뒷벽
+  // 사주 상품 소품 — 서안 위(분야별) · 왼쪽 진열대(종합·기간) · 마당 좌판(무료)
   const topicProps = {};
+  const topicSpots = {};
+  const place = (group, fn) => SAJU_TOPICS.filter((t) => t.group === group).forEach((t, i) => {
+    const prop = buildProp(t.id);
+    const spot = fn(prop, i);
+    topicProps[t.id] = prop; topicSpots[t.id] = spot;
+  });
+  // 서안 위 6개: 가운데 서책을 비워두고 왼쪽 3 · 오른쪽 3
+  const COUNTER_X = [-5.35, -4.6, -3.85, -2.15, -1.4, -0.65];
+  place('counter', (prop, i) => {
+    prop.scale.setScalar(0.9);
+    prop.position.set(COUNTER_X[i], PLATFORM_H + 0.46, -9.05);
+    hall.add(prop);
+    return new THREE.Vector3(COUNTER_X[i], 0, -7.75);
+  });
+  // 왼쪽 앞 진열대 3개 (벽을 등지고 서재 안쪽을 봄)
   {
-    const cx = -3.95, cz = -13.18, W = 6.6, H = 1.0;
-    const wood = '#4a2c1c';
-    hall.add(box(W, 0.07, 0.48, wood, cx, PLATFORM_H + H, cz));          // 상판
-    hall.add(box(W, 0.06, 0.44, wood, cx, PLATFORM_H + H * 0.5, cz));    // 중판
-    hall.add(box(W, 0.06, 0.44, wood, cx, PLATFORM_H + 0.06, cz));       // 하판
-    for (let i = 0; i <= 6; i++) hall.add(box(0.07, H, 0.48, '#3a2216', cx - W / 2 + i * (W / 6), PLATFORM_H + H / 2, cz));
-    SAJU_TOPICS.forEach((t, i) => {
-      const x = cx - W / 2 + (i + 0.5) * (W / 6);
-      const prop = buildProp(t.id);
-      prop.position.set(x, PLATFORM_H + H + 0.035, cz + 0.02);
+    const sx = -7.27, W = 2.2, H = 0.8, cz = -6.85;
+    hall.add(box(0.5, 0.07, W, '#4a2c1c', sx, PLATFORM_H + H, cz));
+    hall.add(box(0.46, 0.06, W, '#4a2c1c', sx, PLATFORM_H + 0.08, cz));
+    for (const dz of [-1, 1]) hall.add(box(0.5, H, 0.07, '#3a2216', sx, PLATFORM_H + H / 2, cz + dz * (W / 2 - 0.035)));
+    const plate = new THREE.Mesh(new THREE.PlaneGeometry(1.6, 0.4),
+      new THREE.MeshStandardMaterial({ map: textTex(['종합 · 기간 운세'], { size: 120 }), emissive: '#3a2a18', emissiveIntensity: 0.4 }));
+    plate.position.set(-7.88, PLATFORM_H + 1.75, cz); plate.rotation.y = Math.PI / 2;
+    hall.add(plate);
+    const Z = [-7.55, -6.85, -6.15];
+    place('time', (prop, i) => {
+      prop.position.set(sx, PLATFORM_H + H + 0.035, Z[i]);
+      prop.rotation.y = Math.PI / 2;
+      prop.userData.baseRotY = Math.PI / 2;
       hall.add(prop);
-      // 아래 칸에 장식용 서책
-      hall.add(box(0.5, 0.08, 0.3, ['#7b2f2a', '#2b4a74', '#3f6a4a'][i % 3], x, PLATFORM_H + 0.13, cz));
-      topicProps[t.id] = prop;
+      return new THREE.Vector3(-6.35, 0, Z[i]);
+    });
+  }
+  // 마당 무료 좌판(대문 들어서면 바로 왼쪽)
+  {
+    const fx = -3.6, fz = 0.6;
+    scene.add(box(2.0, 0.08, 0.8, '#5b3421', fx, 0.52, fz));
+    scene.add(box(2.04, 0.02, 0.84, '#9a2f2a', fx, 0.565, fz));
+    for (const dx of [-0.9, 0.9]) for (const dz of [-0.32, 0.32]) scene.add(box(0.08, 0.5, 0.08, '#3a2216', fx + dx, 0.25, fz + dz));
+    const sign = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.45),
+      new THREE.MeshStandardMaterial({ map: textTex(['무료 운세'], { size: 140, bg: '#9a2f2a', fg: '#fff3d6', border: '#e2c48d' }), emissive: '#3a1010', emissiveIntensity: 0.5 }));
+    sign.position.set(fx, 1.55, fz - 0.42);
+    scene.add(sign, box(0.06, 1.3, 0.06, '#3a2216', fx - 0.7, 0.65, fz - 0.45), box(0.06, 1.3, 0.06, '#3a2216', fx + 0.7, 0.65, fz - 0.45));
+    const X = [fx - 0.55, fx + 0.55];
+    place('free', (prop, i) => {
+      prop.position.set(X[i], 0.575, fz);
+      scene.add(prop);
+      return new THREE.Vector3(X[i], 0, 1.6);
     });
   }
 
@@ -455,12 +523,10 @@ export function buildWorld(scene, today) {
   const scrollAnchor = new THREE.Object3D();
   scrollAnchor.position.set(0, PLATFORM_H + 0.2, -13.8);
   scene.add(scrollAnchor);
-  npcs.ilju = { obj: scrollAnchor, spot: new THREE.Vector3(0, 0, -12.2), labelY: 2.95, kind: 'object' };
+  npcs.ilju = { obj: scrollAnchor, spot: new THREE.Vector3(0.6, 0, -12.2), labelY: 2.95, kind: 'object' };
   for (const t of SAJU_TOPICS) {
-    const p = topicProps[t.id];
     npcs['topic:' + t.id] = {
-      kind: 'item', topic: t, obj: p, labelY: 0.75,
-      spot: new THREE.Vector3(p.position.x, 0, -12.4),
+      kind: 'item', topic: t, obj: topicProps[t.id], labelY: 0.75, spot: topicSpots[t.id],
     };
   }
 
@@ -468,13 +534,31 @@ export function buildWorld(scene, today) {
     crystal.material.emissiveIntensity = 0.7 + Math.sin(t * 2.2) * 0.35;
     candleLight.intensity = 2.6 + Math.sin(t * 13) * 0.3 + Math.sin(t * 7.3) * 0.25;
     halo.scale.setScalar(1 + Math.sin(t * 0.8) * 0.03);
-    Object.values(topicProps).forEach((p, i) => { p.rotation.y = Math.sin(t * 0.7 + i) * 0.35; });
+    Object.values(topicProps).forEach((p, i) => { p.rotation.y = (p.userData.baseRotY || 0) + Math.sin(t * 0.7 + i) * 0.35; });
   });
 
   return { anim, fadeables, gateFade, npcs, clickTargets: [ground, alley, yard, maru] };
 }
 
 // ── 분야별 소품 ───────────────────────────────────
+const zodiacTex = () => canvasTex(256, 256, (g, w) => {
+  const c = w / 2;
+  g.fillStyle = '#efe4c8'; g.fillRect(0, 0, w, w);
+  g.strokeStyle = '#8a6a3a'; g.lineWidth = 4;
+  g.beginPath(); g.arc(c, c, c - 6, 0, Math.PI * 2); g.stroke();
+  g.beginPath(); g.arc(c, c, c * 0.38, 0, Math.PI * 2); g.stroke();
+  const br = ['子', '丑', '寅', '卯', '辰', '巳', '午', '未', '申', '酉', '戌', '亥'];
+  g.font = '700 30px serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  br.forEach((b, i) => {
+    const a = i / 12 * Math.PI * 2 - Math.PI / 2;
+    g.fillStyle = i === 7 ? '#c0392b' : '#2a1d14'; // 2027 정미년의 未 강조
+    g.fillText(b, c + Math.cos(a) * c * 0.7, c + Math.sin(a) * c * 0.7);
+    g.beginPath(); g.moveTo(c + Math.cos(a + Math.PI / 12) * c * 0.38, c + Math.sin(a + Math.PI / 12) * c * 0.38);
+    g.lineTo(c + Math.cos(a + Math.PI / 12) * (c - 6), c + Math.sin(a + Math.PI / 12) * (c - 6)); g.stroke();
+  });
+  g.fillStyle = '#c0392b'; g.font = '700 46px serif'; g.fillText('運', c, c + 2);
+});
+
 function buildProp(id) {
   const g = new THREE.Group();
   const add = (geo, color, x, y, z, extra) => {
@@ -524,6 +608,39 @@ function buildProp(id) {
       0, 0.3, 0, { roughness: 0.6, emissive: '#5a0d08', emissiveIntensity: 0.4 });
     knot.rotation.x = Math.PI / 2;
     for (const s of [-1, 1]) { const tassel = add(new THREE.ConeGeometry(0.03, 0.14, 6), '#c0392b', 0.05 * s, 0.11, 0.1); tassel.rotation.z = 0.2 * s; }
+  } else if (id === 'today') { // 해시계
+    add(new THREE.CylinderGeometry(0.24, 0.26, 0.08, 24), '#b9b2a3', 0, 0.1, 0, { roughness: 0.7 });
+    const gn = add(new THREE.BoxGeometry(0.02, 0.2, 0.2), '#d4a640', 0, 0.2, 0, gold); gn.rotation.x = 0.6;
+    for (let i = 0; i < 12; i++) add(new THREE.BoxGeometry(0.012, 0.01, 0.05), '#2a1d14', Math.sin(i / 12 * Math.PI * 2) * 0.19, 0.145, Math.cos(i / 12 * Math.PI * 2) * 0.19).rotation.y = i / 12 * Math.PI * 2;
+    add(new THREE.SphereGeometry(0.06, 14, 10), '#ffcf5a', 0, 0.48, 0, { emissive: '#ffb020', emissiveIntensity: 1.2 });
+  } else if (id === 'zodiac') { // 십이지 원판
+    const disc = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.26, 0.04, 36), [
+      std('#5b3421'), std('#ffffff', { map: zodiacTex() }), std('#5b3421')]);
+    disc.rotation.x = Math.PI / 2; disc.position.set(0, 0.36, 0); disc.castShadow = true;
+    g.add(disc);
+    add(new THREE.BoxGeometry(0.06, 0.1, 0.06), '#3a2216', 0, 0.08, 0);
+  } else if (id === 'total') { // 명리 원전(서책 더미)
+    [['#2b4a74', 0.08, 0], ['#7b2f2a', 0.15, 0.25], ['#3f5a3a', 0.22, -0.15]].forEach(([c, y, r]) => {
+      const b = add(new THREE.BoxGeometry(0.34, 0.065, 0.46), c, 0, y, 0); b.rotation.y = r;
+      const t = add(new THREE.BoxGeometry(0.06, 0.068, 0.3), '#efe6d0', 0.06, y, 0); t.rotation.y = r;
+    });
+    const tassel = add(new THREE.ConeGeometry(0.03, 0.12, 6), '#d8b56a', 0.12, 0.2, 0.2, gold); tassel.rotation.z = Math.PI;
+  } else if (id === 'weekly') { // 이레 달력
+    const board = new THREE.Group(); board.position.set(0, 0.3, 0); board.rotation.x = -0.25; g.add(board);
+    const bm = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.36, 0.03), std('#efe6d0')); board.add(bm);
+    const cols = ['#c0392b', '#3f7a52', '#a8402f', '#a9843f', '#b9b8b0', '#2b4a74', '#d4a640'];
+    cols.forEach((c, i) => { const tile = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.12, 0.012), std(c)); tile.position.set(-0.2 + i * 0.066, -0.04, 0.02); board.add(tile); });
+    const top = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.05, 0.035), std('#7b2f2a')); top.position.y = 0.13; board.add(top);
+    for (const s of [-1, 1]) add(new THREE.BoxGeometry(0.03, 0.3, 0.03), '#3a2216', 0.2 * s, 0.17, -0.06);
+  } else if (id === 'yearly') { // 붉은 양(2027 정미년)
+    const wool = '#c8483a';
+    for (const [x, y, z, r] of [[0, 0.22, 0, 0.13], [0.08, 0.24, 0.05, 0.09], [-0.08, 0.24, 0.05, 0.09], [0, 0.27, -0.08, 0.1], [0, 0.3, 0.02, 0.1]]) add(new THREE.SphereGeometry(r, 12, 8), wool, x, y, z);
+    add(new THREE.SphereGeometry(0.075, 12, 8), '#f2e2c6', 0, 0.33, 0.16);
+    for (const s of [-1, 1]) {
+      const horn = add(new THREE.TorusGeometry(0.045, 0.016, 6, 12, Math.PI * 1.4), '#d8b56a', 0.06 * s, 0.39, 0.12, gold); horn.rotation.y = s * Math.PI / 2;
+      add(new THREE.SphereGeometry(0.012, 6, 4), '#1a1a1a', 0.032 * s, 0.35, 0.225);
+    }
+    for (const [x, z] of [[-0.07, 0.06], [0.07, 0.06], [-0.07, -0.08], [0.07, -0.08]]) add(new THREE.CylinderGeometry(0.02, 0.02, 0.12, 6), '#3a2216', x, 0.11, z);
   } else if (id === 'pet') { // 방석 위 강아지
     const cushion = add(new THREE.CylinderGeometry(0.27, 0.27, 0.07, 20), '#7b2f2a', 0, 0.095, 0); cushion.scale.z = 0.85;
     const fur = '#e3c79c';

@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=3';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=3';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS } from './config.js';
+} from './saju.js?v=3';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=3';
 
 const $ = (s) => document.querySelector(s);
 
@@ -84,24 +84,33 @@ function goTo(target, arrive = null) {
   const t = target.clone();
   path = [];
   const V = (x, z) => new THREE.Vector3(x, 0, z);
-  // 진열장 앞 통로는 유림거사 서안 오른쪽(x = -0.85) 길로 드나듭니다
-  const AISLE = -0.85;
-  const fromBehind = behindDesk(from), toBehind = behindDesk(t);
-  if (fromBehind && !toBehind) path.push(V(AISLE, -12.0), V(AISLE, -8.0));
+  const inHall = (v) => v.z < -3.9;
+  const door = (x) => THREE.MathUtils.clamp(x, -3, 3); // 앞 기둥(x=±4) 사이로 드나듦
+  // 마당 무료 좌판 앞은 탁자 오른쪽 옆으로 드나듭니다
+  const atStall = (v) => v.z > -0.4 && v.z < 2.6 && v.x < -2.0 && v.x > -5.4;
+  const STALL_SIDE = V(-1.5, 1.7);
+  // 일진 족자 앞(서안과 타로 테이블 사이 통로)은 서안 오른쪽 끝으로 드나듭니다
+  const inBack = (v) => v.z < -8.2;
+  const BACK_DOOR = V(1.0, -7.9);
+  if (inBack(from) && !inBack(t)) path.push(BACK_DOOR.clone());
+  if (atStall(from) && !atStall(t)) path.push(STALL_SIDE.clone());
+  // 서재 → 밖
+  if (inHall(from) && !inHall(t)) path.push(V(door(from.x), -5.0), V(door(from.x), -3.0));
   // 골목 ↔ 마당 사이는 대문 한가운데를 거쳐 갑니다
   if (inAlley(from.z) !== inAlley(t.z)) {
     path.push(V(THREE.MathUtils.clamp(from.x, -1, 1), inAlley(from.z) ? 4.6 : 3.2));
     path.push(V(0, inAlley(from.z) ? 3.0 : 4.8));
   }
-  if (toBehind && !fromBehind) path.push(V(AISLE, -8.0), V(AISLE, -12.0));
+  // 밖 → 서재
+  if (!inHall(from) && inHall(t)) path.push(V(door(t.x), -3.0), V(door(t.x), -5.0));
+  if (inBack(t) && !inBack(from)) path.push(BACK_DOOR.clone());
+  if (atStall(t) && !atStall(from)) path.push(STALL_SIDE.clone());
   path.push(t);
   onArrive = arrive;
   stuckTime = 0;
   marker.position.set(t.x, heightAt(t.x, t.z) + 0.03, t.z);
   marker.material.opacity = arrive ? 0 : 0.9;
 }
-
-function behindDesk(v) { return v.z < -11.2 && v.x < -0.6; }
 
 function tryStep(dx, dz) {
   const p = player.position;
@@ -208,7 +217,9 @@ function updateCamera(dt) {
   // 입장 연출: 하늘에서 골목으로 내려옴
   const e = 1 - Math.pow(1 - Math.min(introT, 1), 3);
   off.y += (1 - e) * 16; off.z += (1 - e) * 10;
-  const want = new THREE.Vector3(p.x * 0.55, p.y, p.z).add(off);
+  // 마당에서는 카메라가 옆으로도 따라가 골목 담장에 가리지 않게
+  const follow = p.z > -3.6 && p.z < 4 ? 1 : 0.55;
+  const want = new THREE.Vector3(p.x * follow, p.y, p.z).add(off);
   camera.position.lerp(want, Math.min(1, dt * 3.5));
   camLook.lerp(new THREE.Vector3(p.x * 0.75, p.y + 1.1, p.z - (indoor ? 2.2 : k > 1 ? 2.0 : 4.5)), Math.min(1, dt * 5));
   camera.lookAt(camLook);
@@ -219,7 +230,7 @@ function updateCamera(dt) {
   else camera.clearViewOffset();
   // 서재 앞마당부터는 지붕·현판을, 대문 근처에서는 대문을 투명하게
   fade(world.fadeables, indoor ? 0 : p.z < 0.5 ? 0.3 : 1, dt);
-  fade(world.gateFade, p.z > -4.5 && p.z < 3.2 ? 0.15 : 1, dt);
+  fade(world.gateFade, p.z > -4.5 && p.z < 4.4 ? 0.15 : 1, dt);
 }
 function fade(mats, target, dt) {
   for (const m of mats) {
@@ -244,6 +255,7 @@ for (const id of Object.keys(world.npcs)) {
   b.className = 'bubble' + (id === 'saju' || id === 'tarot' ? ' bubble--main' : '') + (world.npcs[id].kind === 'item' ? ' bubble--item' : '');
   b.type = 'button';
   b.textContent = LABELS[id];
+  b.title = LABELS[id];
   b.addEventListener('click', () => approach(id));
   labelLayer.appendChild(b);
   labelEls[id] = b;
@@ -269,10 +281,12 @@ function updateLabels() {
   for (const [id, n] of Object.entries(world.npcs)) {
     // 분야별 소품 말풍선은 서재 안에 들어왔을 때만
     if (n.kind === 'item') {
-      if (!indoor) { labelEls[id].style.display = 'none'; continue; }
-      // 멀리서는 아이콘만. 진열장 앞에서는 넓은 화면이면 전부, 좁은 화면이면 바로 앞 소품만 이름까지
+      // 서재 안 소품은 서재 안에서만, 마당 무료 좌판은 서재 밖에서만 말풍선을 보여줍니다
+      const show = n.topic.group === 'free' ? !indoor && player.position.z < 14 : indoor;
+      if (!show) { labelEls[id].style.display = 'none'; continue; }
+      // 평소엔 아이콘만, 바로 앞에 선 소품만 이름까지
       const dx = n.spot.x - player.position.x, dz = n.spot.z - player.position.z;
-      const full = Math.hypot(dx, dz) < 0.6 || (window.innerWidth >= 700 && player.position.z < -10.5);
+      const full = Math.hypot(dx, dz) < 0.6;
       const want = full ? LABELS[id] : n.topic.icon;
       if (labelEls[id].textContent !== want) labelEls[id].textContent = want;
     }
@@ -306,8 +320,9 @@ function talk(id) {
       : `어서 오시게, ${name}. 생년월일을 알려주면 타고난 기운부터 짚어줄 수 있다네.`;
     showDialog('유림거사', `${intro}<br>삶의 큰 흐름이 궁금하다면 사주로 차근차근 풀어보세.`, [
       { label: '사주풀이 펼치기 (무료 운세부터)', primary: true, act: () => openService('유림거사 사주풀이', LINKS.saju) },
-      { label: '분야별로 골라볼게요', act: topicMenu },
-      { label: '오늘의 일진 먼저 볼게요', act: openIlju },
+      { label: '🎁 무료 운세 먼저 볼게요', act: () => topicMenu('free') },
+      { label: '분야별로 골라볼게요', act: () => topicMenu('counter') },
+      { label: '종합·기간 운세 볼게요', act: () => topicMenu('time') },
       ...(i ? [] : [{ label: '생년월일 알려드릴게요', act: openProfile }]),
       { label: '조금 더 둘러볼게요', act: closeDialog },
     ]);
@@ -323,24 +338,27 @@ function talk(id) {
   }
   if (id === 'guide') {
     showDialog('안내 동자',
-      `어서 오세요, ${honor()}! 유림거사님은 안쪽 서재에 계세요.<br>왼쪽은 <b>사주</b>, 오른쪽은 <b>타로</b> 자리랍니다. 뒷벽 족자에는 오늘의 일진이 걸려 있어요.`, [
+      `어서 오세요, ${honor()}! 유림거사님은 안쪽 서재에 계세요.<br>왼쪽은 <b>사주</b>, 오른쪽은 <b>타로</b> 자리랍니다.<br>바로 옆 <b>무료 운세 좌판</b>에서 오늘운세·띠별운세를 먼저 보고 가셔도 돼요.`, [
         { label: '유림거사님께 데려다줘', primary: true, act: () => approach('saju') },
+        { label: '무료 운세 좌판 볼래', act: () => approach('topic:today') },
         { label: '타로 자리로 갈래', act: () => approach('tarot') },
         { label: '혼자 둘러볼게', act: closeDialog },
       ]);
   }
 }
 
-function topicMenu() {
-  showDialog('유림거사', '뒤 진열장의 소품마다 풀이가 하나씩 깃들어 있다네.<br>어떤 운이 궁금한가?', [
-    ...SAJU_TOPICS.map((t) => ({ label: `${t.icon} ${t.name}`, act: () => approach('topic:' + t.id) })),
+function topicMenu(group) {
+  const g = TOPIC_GROUPS[group];
+  showDialog(`유림거사 · ${g.title}`, g.intro, [
+    ...SAJU_TOPICS.filter((t) => t.group === group).map((t) => ({ label: `${t.icon} ${t.name}`, act: () => approach('topic:' + t.id) })),
+    { label: '다른 갈래 볼게요', act: () => talk('saju') },
   ]);
 }
 
 function talkTopic(t) {
   showDialog(`${t.icon} ${t.name} · ${t.prop}`, t.desc, [
-    { label: `${t.name} 보러 가기`, primary: true, act: () => openService(`${t.name} · 유림거사 사주풀이`, t.url, t.url === LINKS.saju ? `첫 화면에서 「${t.pick}」 메뉴를 눌러주세요` : '') },
-    { label: '다른 분야도 볼게요', act: topicMenu },
+    { label: `${t.name} 보러 가기${t.free ? ' (무료)' : ''}`, primary: true, act: () => openService(`${t.name} · 유림거사 사주풀이`, t.url, t.url === LINKS.saju ? `첫 화면에서 「${t.pick}」 메뉴를 눌러주세요` : '') },
+    { label: '다른 것도 볼게요', act: () => topicMenu(t.group) },
     { label: '조금 더 둘러볼게요', act: closeDialog },
   ]);
 }
@@ -446,7 +464,7 @@ function talkHint() {
 }
 
 applyLook();
-if (new URLSearchParams(location.search).has('debug')) window.__lounge = { player, get path() { return path; } };
+if (new URLSearchParams(location.search).has('debug')) window.__lounge = { player, approach, get path() { return path; } };
 if (profile.name || profile.birth) {
   form.name.value = profile.name || '';
   form.birth.value = profile.birth || '';
