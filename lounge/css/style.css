@@ -15,7 +15,7 @@
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; overflow: hidden; background: var(--navy); color: var(--ink); font-family: var(--sans); }
-body { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; }
+body { -webkit-tap-highlight-color: transparent; overscroll-behavior: none; word-break: keep-all; overflow-wrap: break-word; }
 button, input { font: inherit; }
 
 #scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; cursor: pointer; }
@@ -30,14 +30,15 @@ button, input { font: inherit; }
   pointer-events: none;
 }
 .hud > * { pointer-events: auto; }
-.hud__brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; }
+.hud__brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; color: var(--ink); text-decoration: none; }
+.hud__brand b, .hud__brand small { white-space: nowrap; }
 .hud__brand b { display: block; font-family: var(--serif); font-size: 16px; letter-spacing: 0.02em; }
 .hud__brand small { display: block; font-size: 11px; color: var(--ink-dim); letter-spacing: 0.12em; }
 .hud__seal {
   display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--gold-deep);
   color: var(--gold); font-family: var(--serif); font-size: 18px;
 }
-.hud__nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+.hud__nav { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
 body:not(.is-started) .hud__nav, body:not(.is-started) .hint { opacity: 0; pointer-events: none; }
 
 .chip {
@@ -168,6 +169,12 @@ body:not(.is-started) .bubble, body:not(.is-started) .nametag { display: none !i
 
 @media (max-width: 560px) {
   .hud__brand small, .hint__keys { display: none; }
+  .hud { gap: 8px; }
+  .hud__nav { flex-wrap: nowrap; }
+  .chip__long { display: none; }
+  .hud__seal { width: 30px; height: 30px; font-size: 16px; }
+  .hud__brand { gap: 7px; }
+  .hud__brand b { font-size: 15px; }
   .chip { padding: 6px 10px; font-size: 12px; }
   #hud-home { display: none; }
   .service__bar .chip { font-size: 12px; }

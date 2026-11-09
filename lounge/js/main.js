@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=5';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=5';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=6';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=6';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=5';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=5';
+} from './saju.js?v=6';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=6';
 
 const $ = (s) => document.querySelector(s);
 
