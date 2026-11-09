@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>유림거사 서재 · 걸어 들어가는 운세상담소</title>
+  <meta name="description" content="달밤 골목 끝, 불 켜진 한옥 서재. 유림거사에게 사주를, 타로 선생에게 카드를 청해 보세요." />
+  <meta property="og:title" content="유림거사 서재" />
+  <meta property="og:description" content="걸어 들어가는 사주·타로 상담소 — 오늘의 일진부터 무료로 확인하세요." />
+  <meta property="og:type" content="website" />
+  <meta property="og:locale" content="ko_KR" />
+  <meta name="theme-color" content="#0a1222" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <canvas id="scene" aria-label="유림거사 서재 3D 공간"></canvas>
+  <div id="labels" aria-live="polite"></div>
+
+  <header class="hud">
+    <a class="hud__brand" href="#" aria-label="유림거사 서재">
+      <span class="hud__seal">柳</span>
+      <span><b>유림거사 서재</b><small>사주 · 타로 상담소</small></span>
+    </a>
+    <nav class="hud__nav">
+      <button id="hud-ilju" class="chip" type="button">📜 오늘의 일진</button>
+      <button id="hud-me" class="chip" type="button">🙂 내 정보</button>
+      <a id="hud-home" class="chip" href="#" target="_blank" rel="noopener">🏠 홈페이지</a>
+    </nav>
+  </header>
+  <p class="hint">바닥을 누르면 걸어가요 · 말풍선을 누르면 대화해요 <span class="hint__keys">· WASD / 방향키</span></p>
+
+  <!-- 입장 · 내 정보 -->
+  <section id="intro" class="intro">
+    <div class="intro__card">
+      <p class="eyebrow">SAJU &amp; TAROT · YURIM GEOSA</p>
+      <h1 class="intro__title">달밤 골목 끝,<br><em>불 켜진 서재</em>로 오세요</h1>
+      <p class="intro__lead">생년월일을 남기면 내 <b>일주</b>에 맞는 옷을 입고 들어가요.<br>입력한 정보는 이 브라우저에만 저장됩니다.</p>
+      <form id="intro-form" class="intro__form" autocomplete="off">
+        <label>이름(별명)
+          <input name="name" maxlength="12" placeholder="손님" />
+        </label>
+        <label>생년월일 (양력)
+          <input name="birth" type="date" min="1900-01-01" max="2100-12-31" />
+        </label>
+        <button class="btn btn--primary btn--lg" type="submit">서재로 들어가기</button>
+        <button id="intro-skip" class="btn btn--ghost" type="button">입력 없이 둘러보기</button>
+      </form>
+    </div>
+  </section>
+
+  <!-- NPC 대화 -->
+  <section id="dialog" class="dialog" hidden>
+    <p class="dialog__who"></p>
+    <p class="dialog__text"></p>
+    <div class="dialog__options"></div>
+  </section>
+
+  <!-- 오늘의 일진 -->
+  <section id="ilju" class="sheet" hidden>
+    <div class="sheet__card ilju">
+      <button id="ilju-close" class="sheet__close" type="button" aria-label="닫기">✕</button>
+      <p class="eyebrow">TODAY'S DAY PILLAR</p>
+      <p class="ilju__hanja" id="ilju-today"></p>
+      <p class="ilju__label" id="ilju-today-label"></p>
+      <div id="ilju-body" class="ilju__body"></div>
+      <div class="ilju__actions">
+        <button id="ilju-birth" class="btn" type="button">생년월일 넣기</button>
+        <button id="ilju-saju" class="btn btn--primary" type="button">내 사주 깊게 보기</button>
+      </div>
+      <p class="fineprint">간단 계산(자시·절기 미보정) 기준의 재미용 풀이입니다.</p>
+    </div>
+  </section>
+
+  <!-- 사주/타로 서비스 창 -->
+  <section id="service" class="service" hidden>
+    <div class="service__bar">
+      <p class="service__title"></p>
+      <a id="service-newtab" class="chip" href="#" target="_blank" rel="noopener">새 창으로 열기 ↗</a>
+      <button id="service-close" class="chip" type="button">서재로 돌아가기 ✕</button>
+    </div>
+    <iframe id="service-frame" title="유림거사 서비스" allow="payment; clipboard-write; fullscreen" src="about:blank"></iframe>
+  </section>
+
+  <noscript><p class="noscript">이 공간은 자바스크립트가 필요해요. <a href="https://yurimfortune.com">홈페이지로 가기</a></p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
