@@ -66,6 +66,8 @@ body:not(.is-started) .hud__nav, body:not(.is-started) .hint { opacity: 0; point
   background: inherit; transform: rotate(45deg); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line);
 }
 .bubble--main { background: var(--gold); border-color: #f6dfae; }
+.bubble--item { padding: 5px 10px; font-size: 12px; background: rgba(20, 26, 44, 0.9); color: var(--ink); border-color: var(--gold-deep); }
+.bubble--item::after { background: rgba(20, 26, 44, 0.9); }
 .bubble.is-near { box-shadow: 0 0 0 3px rgba(226, 196, 141, 0.45), 0 6px 18px rgba(0, 0, 0, 0.35); }
 body:not(.is-started) .bubble, body:not(.is-started) .nametag { display: none !important; }
 .nametag {
@@ -150,6 +152,7 @@ body:not(.is-started) .bubble, body:not(.is-started) .nametag { display: none !i
   border-bottom: 1px solid var(--line); background: var(--navy-2);
 }
 .service__title { flex: 1; min-width: 0; margin: 0; font-family: var(--serif); font-weight: 700; color: var(--gold); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.service__hint { margin: 0; padding: 8px 14px; background: var(--gold); color: #1d150d; font-size: 14px; font-weight: 700; text-align: center; }
 .service iframe { flex: 1; width: 100%; border: 0; background: #fff; }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 

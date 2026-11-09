@@ -5,7 +5,7 @@ import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
 } from './saju.js';
-import { LINKS, OPEN_IN_NEW_TAB } from './config.js';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 
@@ -83,17 +83,25 @@ function goTo(target, arrive = null) {
   const from = player.position;
   const t = target.clone();
   path = [];
+  const V = (x, z) => new THREE.Vector3(x, 0, z);
+  // 진열장 앞 통로는 유림거사 서안 오른쪽(x = -0.85) 길로 드나듭니다
+  const AISLE = -0.85;
+  const fromBehind = behindDesk(from), toBehind = behindDesk(t);
+  if (fromBehind && !toBehind) path.push(V(AISLE, -12.0), V(AISLE, -8.0));
   // 골목 ↔ 마당 사이는 대문 한가운데를 거쳐 갑니다
   if (inAlley(from.z) !== inAlley(t.z)) {
-    path.push(new THREE.Vector3(THREE.MathUtils.clamp(from.x, -1, 1), 0, inAlley(from.z) ? 4.6 : 3.2));
-    path.push(new THREE.Vector3(0, 0, inAlley(from.z) ? 3.0 : 4.8));
+    path.push(V(THREE.MathUtils.clamp(from.x, -1, 1), inAlley(from.z) ? 4.6 : 3.2));
+    path.push(V(0, inAlley(from.z) ? 3.0 : 4.8));
   }
+  if (toBehind && !fromBehind) path.push(V(AISLE, -8.0), V(AISLE, -12.0));
   path.push(t);
   onArrive = arrive;
   stuckTime = 0;
   marker.position.set(t.x, heightAt(t.x, t.z) + 0.03, t.z);
   marker.material.opacity = arrive ? 0 : 0.9;
 }
+
+function behindDesk(v) { return v.z < -11.2 && v.x < -0.6; }
 
 function tryStep(dx, dz) {
   const p = player.position;
@@ -180,7 +188,7 @@ canvas.addEventListener('pointerup', (e) => {
   ray.setFromCamera(ndc, camera);
   // NPC를 직접 눌렀는지
   for (const [id, n] of Object.entries(world.npcs)) {
-    if (n.isObject) continue;
+    if (n.kind === 'object') continue;
     if (ray.intersectObject(n.obj, true).length) { approach(id); return; }
   }
   const hit = ray.intersectObjects(world.clickTargets, false)[0];
@@ -229,10 +237,11 @@ const LABELS = {
   guide: '🙇 안내 동자',
   ilju: `📜 오늘의 일진 · ${today.label}일`,
 };
+for (const t of SAJU_TOPICS) LABELS['topic:' + t.id] = `${t.icon} ${t.name}`;
 const labelEls = {};
 for (const id of Object.keys(world.npcs)) {
   const b = document.createElement('button');
-  b.className = 'bubble' + (id === 'saju' || id === 'tarot' ? ' bubble--main' : '');
+  b.className = 'bubble' + (id === 'saju' || id === 'tarot' ? ' bubble--main' : '') + (world.npcs[id].kind === 'item' ? ' bubble--item' : '');
   b.type = 'button';
   b.textContent = LABELS[id];
   b.addEventListener('click', () => approach(id));
@@ -256,7 +265,17 @@ function place(el, obj, y) {
   }
 }
 function updateLabels() {
+  const indoor = player.position.z < -3.6;
   for (const [id, n] of Object.entries(world.npcs)) {
+    // 분야별 소품 말풍선은 서재 안에 들어왔을 때만
+    if (n.kind === 'item') {
+      if (!indoor) { labelEls[id].style.display = 'none'; continue; }
+      // 멀리서는 아이콘만. 진열장 앞에서는 넓은 화면이면 전부, 좁은 화면이면 바로 앞 소품만 이름까지
+      const dx = n.spot.x - player.position.x, dz = n.spot.z - player.position.z;
+      const full = Math.hypot(dx, dz) < 0.6 || (window.innerWidth >= 700 && player.position.z < -10.5);
+      const want = full ? LABELS[id] : n.topic.icon;
+      if (labelEls[id].textContent !== want) labelEls[id].textContent = want;
+    }
     place(labelEls[id], n.obj, n.labelY);
     const d = player.position.distanceTo(tmp.set(n.spot.x, player.position.y, n.spot.z));
     labelEls[id].classList.toggle('is-near', d < 1.6);
@@ -280,12 +299,14 @@ function talk(id) {
   const name = displayName();
   const i = ilju();
   if (id === 'ilju') { openIlju(); return; }
+  if (id.startsWith('topic:')) { talkTopic(world.npcs[id].topic); return; }
   if (id === 'saju') {
     const intro = i
       ? `어서 오시게, ${name}. ${i.label}일주(${i.hanja})로구먼. 일간이 ${i.element}(${ELEMENT_HANJA[i.element]})이니 ${ELEMENT_NATURE[i.element]}`
       : `어서 오시게, ${name}. 생년월일을 알려주면 타고난 기운부터 짚어줄 수 있다네.`;
     showDialog('유림거사', `${intro}<br>삶의 큰 흐름이 궁금하다면 사주로 차근차근 풀어보세.`, [
       { label: '사주풀이 펼치기 (무료 운세부터)', primary: true, act: () => openService('유림거사 사주풀이', LINKS.saju) },
+      { label: '분야별로 골라볼게요', act: topicMenu },
       { label: '오늘의 일진 먼저 볼게요', act: openIlju },
       ...(i ? [] : [{ label: '생년월일 알려드릴게요', act: openProfile }]),
       { label: '조금 더 둘러볼게요', act: closeDialog },
@@ -310,6 +331,20 @@ function talk(id) {
   }
 }
 
+function topicMenu() {
+  showDialog('유림거사', '뒤 진열장의 소품마다 풀이가 하나씩 깃들어 있다네.<br>어떤 운이 궁금한가?', [
+    ...SAJU_TOPICS.map((t) => ({ label: `${t.icon} ${t.name}`, act: () => approach('topic:' + t.id) })),
+  ]);
+}
+
+function talkTopic(t) {
+  showDialog(`${t.icon} ${t.name} · ${t.prop}`, t.desc, [
+    { label: `${t.name} 보러 가기`, primary: true, act: () => openService(`${t.name} · 유림거사 사주풀이`, t.url, t.url === LINKS.saju ? `첫 화면에서 「${t.pick}」 메뉴를 눌러주세요` : '') },
+    { label: '다른 분야도 볼게요', act: topicMenu },
+    { label: '조금 더 둘러볼게요', act: closeDialog },
+  ]);
+}
+
 function showDialog(who, html, options) {
   dialog.querySelector('.dialog__who').textContent = who;
   dialog.querySelector('.dialog__text').innerHTML = html;
@@ -329,10 +364,13 @@ function closeDialog() { dialog.hidden = true; }
 // ── 서비스 창(iframe) ─────────────────────────────
 const service = $('#service');
 const frame = $('#service-frame');
-function openService(title, url) {
+function openService(title, url, hint = '') {
   closeDialog();
   if (OPEN_IN_NEW_TAB.has(url)) { window.open(url, '_blank', 'noopener'); return; }
   service.querySelector('.service__title').textContent = title;
+  const h = $('#service-hint');
+  h.textContent = hint ? `👉 ${hint}` : '';
+  h.hidden = !hint;
   $('#service-newtab').href = url;
   frame.src = url;
   service.hidden = false;
@@ -423,7 +461,7 @@ function loop() {
   if (started) introT += dt / 2.2;
   const moving = started ? updateMovement(dt) : 0;
   animatePerson(player, t, moving);
-  for (const n of Object.values(world.npcs)) if (!n.isObject) animatePerson(n.obj, t, 0);
+  for (const n of Object.values(world.npcs)) if (n.kind === 'person') animatePerson(n.obj, t, 0);
   for (const f of world.anim) f(t);
   marker.material.opacity *= 0.97;
   player.userData.aura.rotation.z = t * 0.6;

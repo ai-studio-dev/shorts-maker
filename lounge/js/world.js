@@ -1,5 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
 import { buildPerson } from './avatar.js';
+import { SAJU_TOPICS } from './config.js';
 
 // ────────────────────────────────────────────────
 // 「유림거사 서재」 월드
@@ -16,7 +17,8 @@ export const WALK_RECTS = [
   [-7.5, -13.3, 7.5, -4.0],  // 서재 마루
 ];
 export const OBSTACLES = [
-  [-4.3, -12.8, -1.7, -8.6], // 유림거사 서안 + 병풍
+  [-4.3, -11.0, -1.7, -8.6], // 유림거사 서안 + 자리
+  [-7.3, -13.4, -0.6, -12.95], // 분야별 진열장(뒷벽)
   [2.45, -11.2, 4.55, -8.3], // 타로 테이블
   [-7.6, -11.8, -6.3, -8.2], // 책장
   [-4.3, -4.5, -3.7, -3.9],  // 앞 기둥
@@ -111,23 +113,6 @@ const latticeTex = () => canvasTex(256, 192, (g, w, h) => {
   for (let x = 0; x <= w; x += 32) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, h); g.stroke(); }
   for (let y = 0; y <= h; y += 32) { g.beginPath(); g.moveTo(0, y); g.lineTo(w, y); g.stroke(); }
   g.lineWidth = 12; g.strokeRect(0, 0, w, h);
-});
-
-const screenTex = () => canvasTex(768, 384, (g, w, h) => {
-  g.fillStyle = '#e9e0c9'; g.fillRect(0, 0, w, h);
-  const r = rand(5);
-  // 수묵 산수
-  for (let layer = 0; layer < 3; layer++) {
-    g.fillStyle = `rgba(40,44,48,${0.18 + layer * 0.16})`;
-    g.beginPath(); g.moveTo(0, h);
-    for (let x = 0; x <= w; x += 24) {
-      g.lineTo(x, h * (0.45 + layer * 0.14) - Math.abs(Math.sin(x / (70 + layer * 30) + layer)) * (90 - layer * 20) - r() * 10);
-    }
-    g.lineTo(w, h); g.fill();
-  }
-  g.fillStyle = 'rgba(176,48,40,0.85)'; g.fillRect(w - 70, 30, 30, 30); // 낙관
-  g.strokeStyle = '#6b4a2a'; g.lineWidth = 6;
-  for (let i = 1; i < 6; i++) { g.beginPath(); g.moveTo(i * w / 6, 0); g.lineTo(i * w / 6, h); g.stroke(); }
 });
 
 function textTex(lines, { w = 1024, h = 256, bg = '#1c140e', fg = '#e7c98f', font = 'serif', size = 110, vertical = false, border = '#b48a4a' } = {}) {
@@ -361,13 +346,9 @@ export function buildWorld(scene, today) {
     hall.add(post, l);
   }
 
-  // 유림거사 자리: 병풍 + 서안 + 서책
+  // 유림거사 자리: 서안 + 서책
   {
     const sx = -3.0;
-    const scr = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 1.7), std('#ffffff', { map: screenTex() }));
-    scr.position.set(sx, PLATFORM_H + 0.95, -12.4);
-    hall.add(scr);
-    hall.add(box(3.5, 0.08, 0.1, '#4a2c1c', sx, PLATFORM_H + 1.82, -12.4));
     hall.add(box(2.2, 0.08, 1.0, '#4a2c1c', sx, PLATFORM_H + 0.42, -9.3)); // 상판
     for (const dx of [-0.95, 0.95]) for (const dz of [-0.38, 0.38]) hall.add(box(0.1, 0.38, 0.1, '#3a2216', sx + dx, PLATFORM_H + 0.19, -9.3 + dz));
     hall.add(box(0.7, 0.05, 0.5, '#efe6d0', sx - 0.2, PLATFORM_H + 0.49, -9.25)); // 서책
@@ -420,6 +401,26 @@ export function buildWorld(scene, today) {
     hall.add(candleLight);
     hall.add(box(0.9, 0.12, 0.9, '#3a2a55', tx, PLATFORM_H + 0.06, -10.5)); // 방석
   }
+  // 분야별 진열장(사방탁자) — 유림거사 뒤 뒷벽
+  const topicProps = {};
+  {
+    const cx = -3.95, cz = -13.18, W = 6.6, H = 1.0;
+    const wood = '#4a2c1c';
+    hall.add(box(W, 0.07, 0.48, wood, cx, PLATFORM_H + H, cz));          // 상판
+    hall.add(box(W, 0.06, 0.44, wood, cx, PLATFORM_H + H * 0.5, cz));    // 중판
+    hall.add(box(W, 0.06, 0.44, wood, cx, PLATFORM_H + 0.06, cz));       // 하판
+    for (let i = 0; i <= 6; i++) hall.add(box(0.07, H, 0.48, '#3a2216', cx - W / 2 + i * (W / 6), PLATFORM_H + H / 2, cz));
+    SAJU_TOPICS.forEach((t, i) => {
+      const x = cx - W / 2 + (i + 0.5) * (W / 6);
+      const prop = buildProp(t.id);
+      prop.position.set(x, PLATFORM_H + H + 0.035, cz + 0.02);
+      hall.add(prop);
+      // 아래 칸에 장식용 서책
+      hall.add(box(0.5, 0.08, 0.3, ['#7b2f2a', '#2b4a74', '#3f6a4a'][i % 3], x, PLATFORM_H + 0.13, cz));
+      topicProps[t.id] = prop;
+    });
+  }
+
   // 일진 족자(뒷벽 가운데)
   const scrollMat = new THREE.MeshStandardMaterial({
     map: textTex([today.hanja + '日', '오늘의 일진'], { w: 256, h: 640, bg: '#efe4c8', fg: '#2a1d14', size: 150, vertical: true, border: '#8a6a3a' }),
@@ -438,29 +439,102 @@ export function buildWorld(scene, today) {
   const yurim = buildPerson({ robe: '#26375a', trim: '#e9e1cc', head: 'gat', beard: true, skin: '#e9c6a2', scale: 1.08 });
   yurim.position.set(-3.0, PLATFORM_H, -10.4);
   scene.add(yurim);
-  npcs.saju = { obj: yurim, spot: new THREE.Vector3(-3.0, 0, -7.75), labelY: 2.2 };
+  npcs.saju = { kind: 'person', obj: yurim, spot: new THREE.Vector3(-3.0, 0, -7.75), labelY: 2.2 };
 
   const tarot = buildPerson({ robe: '#4b2d6b', trim: '#d8b56a', head: 'hood', skin: '#f0d0b4' });
   tarot.position.set(3.5, PLATFORM_H, -10.5);
   scene.add(tarot);
-  npcs.tarot = { obj: tarot, spot: new THREE.Vector3(3.5, 0, -7.75), labelY: 2.2 };
+  npcs.tarot = { kind: 'person', obj: tarot, spot: new THREE.Vector3(3.5, 0, -7.75), labelY: 2.2 };
 
   const dongja = buildPerson({ robe: '#3d6e8f', trim: '#f2ead6', head: 'topknot', scale: 0.78 });
   dongja.position.set(2.65, 0, 2.9);
   dongja.rotation.y = -0.6;
   scene.add(dongja);
-  npcs.guide = { obj: dongja, spot: new THREE.Vector3(1.6, 0, 3.0), labelY: 1.75 };
+  npcs.guide = { kind: 'person', obj: dongja, spot: new THREE.Vector3(1.6, 0, 3.0), labelY: 1.75 };
 
   const scrollAnchor = new THREE.Object3D();
   scrollAnchor.position.set(0, PLATFORM_H + 0.2, -13.8);
   scene.add(scrollAnchor);
-  npcs.ilju = { obj: scrollAnchor, spot: new THREE.Vector3(0, 0, -12.2), labelY: 2.95, isObject: true };
+  npcs.ilju = { obj: scrollAnchor, spot: new THREE.Vector3(0, 0, -12.2), labelY: 2.95, kind: 'object' };
+  for (const t of SAJU_TOPICS) {
+    const p = topicProps[t.id];
+    npcs['topic:' + t.id] = {
+      kind: 'item', topic: t, obj: p, labelY: 0.75,
+      spot: new THREE.Vector3(p.position.x, 0, -12.4),
+    };
+  }
 
   anim.push((t) => {
     crystal.material.emissiveIntensity = 0.7 + Math.sin(t * 2.2) * 0.35;
     candleLight.intensity = 2.6 + Math.sin(t * 13) * 0.3 + Math.sin(t * 7.3) * 0.25;
     halo.scale.setScalar(1 + Math.sin(t * 0.8) * 0.03);
+    Object.values(topicProps).forEach((p, i) => { p.rotation.y = Math.sin(t * 0.7 + i) * 0.35; });
   });
 
   return { anim, fadeables, gateFade, npcs, clickTargets: [ground, alley, yard, maru] };
+}
+
+// ── 분야별 소품 ───────────────────────────────────
+function buildProp(id) {
+  const g = new THREE.Group();
+  const add = (geo, color, x, y, z, extra) => {
+    const m = new THREE.Mesh(geo, std(color, extra));
+    m.position.set(x, y, z); m.castShadow = true; g.add(m); return m;
+  };
+  const gold = { metalness: 0.75, roughness: 0.3, emissive: '#5a3d0a', emissiveIntensity: 0.35 };
+  // 받침
+  add(new THREE.CylinderGeometry(0.3, 0.33, 0.06, 20), '#2b1d14', 0, 0.03, 0);
+  if (id === 'wealth') { // 금두꺼비 + 엽전
+    const body = add(new THREE.SphereGeometry(0.2, 18, 12), '#d4a640', 0, 0.2, 0, gold); body.scale.set(1.15, 0.75, 1);
+    const head = add(new THREE.SphereGeometry(0.12, 14, 10), '#d4a640', 0, 0.3, 0.12, gold); head.scale.set(1.3, 0.8, 1);
+    for (const s of [-1, 1]) add(new THREE.SphereGeometry(0.035, 8, 6), '#1a1a1a', 0.07 * s, 0.38, 0.15);
+    const coin = add(new THREE.TorusGeometry(0.07, 0.022, 6, 16), '#e8c45a', 0, 0.27, 0.25, gold);
+    coin.rotation.x = 0.2;
+  } else if (id === 'health') { // 청자 약초 항아리 + 약초
+    const jar = add(new THREE.SphereGeometry(0.19, 18, 14), '#7fae9e', 0, 0.24, 0, { roughness: 0.35 }); jar.scale.set(1, 1.15, 1);
+    add(new THREE.CylinderGeometry(0.09, 0.12, 0.12, 16), '#7fae9e', 0, 0.48, 0, { roughness: 0.35 });
+    for (let i = 0; i < 5; i++) {
+      const leaf = add(new THREE.ConeGeometry(0.035, 0.24, 6), '#4f8a3f', Math.cos(i * 1.3) * 0.05, 0.62, Math.sin(i * 1.3) * 0.05);
+      leaf.rotation.z = Math.cos(i * 1.3) * 0.5; leaf.rotation.x = Math.sin(i * 1.3) * 0.5;
+    }
+  } else if (id === 'career') { // 주판 + 장부
+    add(new THREE.BoxGeometry(0.42, 0.06, 0.3), '#efe6d0', 0, 0.09, 0.02);           // 장부
+    add(new THREE.BoxGeometry(0.42, 0.012, 0.3), '#7b2f2a', 0, 0.126, 0.02);
+    const frame = new THREE.Group(); frame.position.set(0, 0.3, -0.04); frame.rotation.x = -0.35; g.add(frame);
+    const fm = std('#5b3421');
+    for (const [w, h, x, y] of [[0.5, 0.035, 0, 0.14], [0.5, 0.035, 0, -0.14], [0.035, 0.31, -0.24, 0], [0.035, 0.31, 0.24, 0], [0.5, 0.02, 0, 0.06]]) {
+      const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, 0.04), fm); b.position.set(x, y, 0); frame.add(b);
+    }
+    const bm = std('#2a1a12', { roughness: 0.4 });
+    for (let c = 0; c < 6; c++) for (let r = 0; r < 4; r++) {
+      const bead = new THREE.Mesh(new THREE.SphereGeometry(0.022, 8, 6), bm);
+      bead.scale.set(1, 0.7, 1);
+      bead.position.set(-0.18 + c * 0.072, (r === 0 ? 0.1 : -0.02 - r * 0.035), 0);
+      frame.add(bead);
+    }
+  } else if (id === 'love') { // 원앙 한 쌍
+    for (const [s, body, headC] of [[-1, '#c96a2e', '#2f6e6a'], [1, '#8a7a66', '#6b5a4a']]) {
+      const b = add(new THREE.SphereGeometry(0.11, 14, 10), body, 0.1 * s, 0.17, 0); b.scale.set(0.85, 0.8, 1.3);
+      add(new THREE.SphereGeometry(0.065, 12, 8), headC, 0.1 * s, 0.3, 0.1);
+      const beak = add(new THREE.ConeGeometry(0.02, 0.07, 6), '#d84a30', 0.1 * s, 0.29, 0.18); beak.rotation.x = Math.PI / 2;
+      const tail = add(new THREE.ConeGeometry(0.05, 0.12, 6), body, 0.1 * s, 0.22, -0.15); tail.rotation.x = -Math.PI / 2.6;
+    }
+  } else if (id === 'match') { // 붉은 실 매듭
+    const knot = add(new THREE.TorusKnotGeometry(0.11, 0.028, 80, 8, 2, 3), '#c0392b',
+      0, 0.3, 0, { roughness: 0.6, emissive: '#5a0d08', emissiveIntensity: 0.4 });
+    knot.rotation.x = Math.PI / 2;
+    for (const s of [-1, 1]) { const tassel = add(new THREE.ConeGeometry(0.03, 0.14, 6), '#c0392b', 0.05 * s, 0.11, 0.1); tassel.rotation.z = 0.2 * s; }
+  } else if (id === 'pet') { // 방석 위 강아지
+    const cushion = add(new THREE.CylinderGeometry(0.27, 0.27, 0.07, 20), '#7b2f2a', 0, 0.095, 0); cushion.scale.z = 0.85;
+    const fur = '#e3c79c';
+    const body = add(new THREE.SphereGeometry(0.11, 14, 10), fur, 0, 0.21, -0.02); body.scale.set(1, 1.05, 1.25);
+    add(new THREE.SphereGeometry(0.085, 14, 10), fur, 0, 0.35, 0.07);
+    const snout = add(new THREE.SphereGeometry(0.04, 10, 8), '#f2e2c6', 0, 0.33, 0.15); snout.scale.z = 1.2;
+    add(new THREE.SphereGeometry(0.015, 6, 4), '#1a1a1a', 0, 0.345, 0.195);
+    for (const s of [-1, 1]) {
+      const ear = add(new THREE.SphereGeometry(0.04, 8, 6), '#b88a5a', 0.075 * s, 0.38, 0.05); ear.scale.set(0.6, 1.3, 0.8);
+      add(new THREE.SphereGeometry(0.013, 6, 4), '#1a1a1a', 0.035 * s, 0.37, 0.145);
+    }
+  }
+  return g;
 }
