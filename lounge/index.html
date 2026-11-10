@@ -13,7 +13,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&family=Noto+Serif+KR:wght@500;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/style.css?v=9" />
+  <link rel="stylesheet" href="css/style.css?v=10" />
 </head>
 <body>
   <canvas id="scene" aria-label="유림거사 서재 3D 공간"></canvas>
@@ -37,7 +37,7 @@
     <div class="intro__card">
       <p class="eyebrow">SAJU &amp; TAROT · YURIM GEOSA</p>
       <h1 class="intro__title">달밤 골목 끝,<br><em>불 켜진 서재</em>로 오세요</h1>
-      <p class="intro__lead">생년월일을 남기면 내 <b>일주</b>에 맞는 옷을 입고 들어가요.<br>입력한 정보는 이 브라우저에만 저장됩니다.</p>
+      <p class="intro__lead">생년월일을 남기면 내 <b>일주</b>에 맞는 옷을 입고 들어가요.<br>입력한 정보는 저장되지 않고, 창을 닫으면 사라집니다.</p>
       <form id="intro-form" class="intro__form" autocomplete="off">
         <label>이름(별명)
           <input name="name" maxlength="12" placeholder="손님" />
@@ -45,9 +45,9 @@
         <fieldset class="birth">
           <legend>생년월일 (양력)</legend>
           <div class="birth__row">
-            <label class="birth__cell birth__cell--y"><input name="by" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY" autocomplete="bday-year" aria-label="태어난 해 4자리" /><span>년</span></label>
-            <label class="birth__cell"><input name="bm" type="text" inputmode="numeric" maxlength="2" placeholder="MM" autocomplete="bday-month" aria-label="태어난 달 2자리" /><span>월</span></label>
-            <label class="birth__cell"><input name="bd" type="text" inputmode="numeric" maxlength="2" placeholder="DD" autocomplete="bday-day" aria-label="태어난 날 2자리" /><span>일</span></label>
+            <label class="birth__cell birth__cell--y"><input name="by" type="text" inputmode="numeric" maxlength="10" placeholder="YYYY" autocomplete="off" aria-label="태어난 해 4자리" /><span>년</span></label>
+            <label class="birth__cell"><input name="bm" type="text" inputmode="numeric" maxlength="2" placeholder="MM" autocomplete="off" aria-label="태어난 달 2자리" /><span>월</span></label>
+            <label class="birth__cell"><input name="bd" type="text" inputmode="numeric" maxlength="2" placeholder="DD" autocomplete="off" aria-label="태어난 날 2자리" /><span>일</span></label>
           </div>
           <input name="birth" type="hidden" />
           <p class="birth__msg" id="birth-msg" role="alert" hidden></p>
@@ -93,6 +93,6 @@
   </section>
 
   <noscript><p class="noscript">이 공간은 자바스크립트가 필요해요. <a href="https://yurimfortune.com">홈페이지로 가기</a></p></noscript>
-  <script type="module" src="js/main.js?v=9"></script>
+  <script type="module" src="js/main.js?v=10"></script>
 </body>
 </html>

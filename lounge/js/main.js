@@ -1,22 +1,23 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=9';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=9';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=10';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=10';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=9';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=9';
+} from './saju.js?v=10';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=10';
 
 const $ = (s) => document.querySelector(s);
 
 // ── 프로필(브라우저에만 저장) ─────────────────────
 const STORE_KEY = 'yurim-lounge-profile';
+// 이름·생년월일은 저장하지 않습니다(같은 기기를 다른 사람이 써도 보이지 않게).
+// 예전 버전이 남겨 둔 값이 있으면 지웁니다. 입력값은 이 화면을 연 동안에만 메모리에 둡니다.
 function loadProfile() {
-  try { return JSON.parse(localStorage.getItem(STORE_KEY)) || null; } catch { return null; }
+  try { localStorage.removeItem(STORE_KEY); } catch { /* 사생활 보호 모드 등 */ }
+  return null;
 }
-function saveProfile(p) {
-  try { localStorage.setItem(STORE_KEY, JSON.stringify(p)); } catch { /* 사생활 보호 모드 등 */ }
-}
+function saveProfile() { /* 저장하지 않음 */ }
 let profile = loadProfile() || { name: '', birth: '' };
 const today = todayPillar();
 const ilju = () => iljuFromBirth(profile.birth);
@@ -585,10 +586,7 @@ function talkHint() {
 
 applyLook();
 if (new URLSearchParams(location.search).has('debug')) window.__lounge = { player, approach, get path() { return path; } };
-if (profile.name || profile.birth) {
-  form.name.value = profile.name || '';
-  fillBirth(profile.birth);
-}
+// 시작 화면은 항상 빈칸으로 시작합니다.
 
 // ── 루프 ─────────────────────────────────────────
 const clock = new THREE.Clock();
