@@ -175,6 +175,16 @@ body:not(.is-started) .bubble, body:not(.is-started) .nametag { display: none !i
 .noscript { position: fixed; inset: 0; display: grid; place-items: center; }
 .noscript a { color: var(--gold); }
 
+.toast {
+  position: fixed; left: 50%; top: max(70px, calc(env(safe-area-inset-top) + 60px)); z-index: 12;
+  transform: translate(-50%, -12px); opacity: 0; pointer-events: none;
+  padding: 10px 16px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--panel); color: var(--ink); font-size: 14px; white-space: nowrap;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45); transition: opacity .4s, transform .4s;
+}
+.toast b { color: var(--gold); }
+.toast.is-on { opacity: 1; transform: translate(-50%, 0); }
+@media (max-width: 380px) { .toast { white-space: normal; text-align: center; width: calc(100% - 32px); } }
 @media (max-width: 560px) {
   .hud__brand small, .hint__keys { display: none; }
   .hud { gap: 8px; }

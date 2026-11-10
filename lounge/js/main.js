@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=8';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=8';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=9';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=9';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=8';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=8';
+} from './saju.js?v=9';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=9';
 
 const $ = (s) => document.querySelector(s);
 
@@ -316,8 +316,8 @@ function talk(id) {
   if (id.startsWith('topic:')) { talkTopic(world.npcs[id].topic); return; }
   if (id === 'saju') {
     const intro = i
-      ? `어서 오시게, ${name}. ${i.label}일주(${i.hanja})로구먼. 일간이 ${i.element}(${ELEMENT_HANJA[i.element]})이니 ${ELEMENT_NATURE[i.element]}`
-      : `어서 오시게, ${name}. 생년월일을 알려주면 타고난 기운부터 짚어줄 수 있다네.`;
+      ? `${greetOnce()}어서 오시게, ${name}. ${i.label}일주(${i.hanja})로구먼. 일간이 ${i.element}(${ELEMENT_HANJA[i.element]})이니 ${ELEMENT_NATURE[i.element]}`
+      : `${greetOnce()}어서 오시게, ${name}. 생년월일을 알려주면 타고난 기운부터 짚어줄 수 있다네.`;
     showDialog('유림거사', `${intro}<br>삶의 큰 흐름이 궁금하다면 사주로 차근차근 풀어보세.`, [
       { label: '사주풀이 펼치기 (무료 운세부터)', primary: true, act: () => openService('유림거사 사주풀이', LINKS.saju) },
       { label: '🎁 무료 운세 먼저 볼게요', act: () => topicMenu('free') },
@@ -555,8 +555,29 @@ $('#hud-ilju').addEventListener('click', () => (started ? approach('ilju') : nul
 $('#hud-me').addEventListener('click', openProfile);
 $('#hud-home').href = LINKS.home;
 
+// 등불을 따라 처음 서재에 닿았을 때의 인사(유림거사 첫 대화에 한 번만)
+let greeted = false;
+function greetOnce() {
+  if (greeted || !world.isHallLit()) return '';
+  greeted = true;
+  return '허허, 등불을 따라 잘 찾아오셨구먼. ';
+}
+// 화면 위쪽에 잠깐 떴다 사라지는 알림
+const toast = document.createElement('div');
+toast.className = 'toast';
+toast.setAttribute('role', 'status');
+document.body.appendChild(toast);
+let toastTimer;
+function showToast(html) {
+  toast.innerHTML = html;
+  toast.classList.add('is-on');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove('is-on'), 3200);
+}
+world.onHallLit(() => showToast('🏮 서재에 불이 밝혀졌습니다 · <b>유림거사</b>가 고개를 듭니다'));
+
 function talkHint() {
-  showDialog('안내 동자', `${honor()}, 유림거사 서재에 오신 걸 환영해요! 골목 끝 대문 안으로 들어오세요.`, [
+  showDialog('안내 동자', `${honor()}, 유림거사 서재에 오신 걸 환영해요!<br>골목은 아직 어둡지만, <b>걸음마다 등불이 켜져요</b>. 불빛을 따라 대문 안으로 들어오세요.`, [
     { label: '안내해줘', primary: true, act: () => approach('guide') },
     { label: '알아서 갈게', act: closeDialog },
   ]);
@@ -580,6 +601,7 @@ function loop() {
   animatePerson(player, t, moving);
   for (const n of Object.values(world.npcs)) if (n.kind === 'person') animatePerson(n.obj, t, 0);
   for (const f of world.anim) f(t);
+  world.updateLights(player.position.z, t, dt);
   marker.material.opacity *= 0.97;
   player.userData.aura.rotation.z = t * 0.6;
   updateCamera(dt);

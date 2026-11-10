@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildPerson } from './avatar.js?v=8';
-import { SAJU_TOPICS } from './config.js?v=8';
+import { buildPerson } from './avatar.js?v=9';
+import { SAJU_TOPICS } from './config.js?v=9';
 
 // ────────────────────────────────────────────────
 // 「유림거사 서재」 월드
@@ -159,6 +159,15 @@ function box(w, h, d, color, x, y, z, extra) {
   return m;
 }
 
+let _glow;
+const glowTex = () => _glow || (_glow = canvasTex(128, 128, (g, w, h) => {
+  const gr = g.createRadialGradient(64, 64, 0, 64, 64, 64);
+  gr.addColorStop(0, 'rgba(255,214,160,1)');
+  gr.addColorStop(0.3, 'rgba(255,170,90,0.5)');
+  gr.addColorStop(1, 'rgba(255,140,60,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, w, h);
+}));
+
 function lantern(x, y, z, color = '#ff9f55') {
   const g = new THREE.Group();
   const paper = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 0.42, 12),
@@ -208,7 +217,7 @@ export function buildWorld(scene, today) {
   scene.fog = new THREE.Fog('#0a1222', 22, 62);
 
   // 조명
-  scene.add(new THREE.HemisphereLight('#6a7fb0', '#2a2018', 1.1));
+  scene.add(new THREE.HemisphereLight('#6a7fb0', '#2a2018', 0.85)); // 달빛 — 등불이 켜지기 전 골목의 밝기
   const moonLight = new THREE.DirectionalLight('#c4d0ff', 1.3);
   moonLight.position.set(-14, 22, 10);
   moonLight.castShadow = true;
@@ -267,15 +276,41 @@ export function buildWorld(scene, today) {
   }
   scene.add(wallSegment(8.6, false, -9.3, 0), wallSegment(8.6, false, 9.3, 0));
 
-  // 골목 등롱
-  [8, 14, 20].forEach((z, i) => {
-    for (const s of [-1, 1]) {
-      const l = lantern(2.85 * s, 2.25, z, i % 2 ? '#ff8f4a' : '#ffb36b');
-      scene.add(l); anim.push((t) => { l.userData.paper.material.emissiveIntensity = 0.8 + Math.sin(t * 3 + z + s) * 0.15; });
-    }
+  // ── 등불 ──────────────────────────────────────
+  // 처음엔 모두 꺼져 있고, 손님이 그 자리를 지날 때(trigger 보다 z가 작아지면) 하나씩 켜집니다.
+  // 켜진 등불은 계속 켜진 채로 남아, 걸어온 길이 불빛으로 남습니다.
+  const lamps = [];
+  const DARK = new THREE.Color('#3b2c22');
+  function addLamp(parent, x, y, z, color, trigger, groundY = 0) {
+    const l = lantern(x, y, z, color);
+    const mat = l.userData.paper.material; // 초기값만 여기서 설정
+    const lit = new THREE.Color(color);
+    mat.color.copy(DARK); mat.emissiveIntensity = 0.03;
+    const glow = (size, opacity) => new THREE.SpriteMaterial({
+      map: glowTex(), color, transparent: true, opacity, depthWrite: false, blending: THREE.AdditiveBlending,
+    });
+    const halo = new THREE.Sprite(glow(1.8, 0)); halo.scale.setScalar(1.8); l.add(halo);
+    const pool = new THREE.Mesh(new THREE.PlaneGeometry(3.4, 3.4), new THREE.MeshBasicMaterial({
+      map: glowTex(), color, transparent: true, opacity: 0, depthWrite: false, blending: THREE.AdditiveBlending,
+    }));
+    pool.rotation.x = -Math.PI / 2;
+    pool.position.set(x * 0.8, groundY + 0.025, z);
+    parent.add(l); scene.add(pool);
+    // paper 메시를 들고 있다가 매번 그 재질을 씁니다(대문처럼 나중에 재질이 복제돼도 따라가도록)
+    const lamp = { trigger, z, level: 0, on: false, at: 0, paper: l.userData.paper, lit, halo, pool, seed: x * 3 + z };
+    lamps.push(lamp);
+    return lamp;
+  }
+  // 대문 앞 · 서재 단계
+  const stage = { gate: 0, gateOn: false, gateAt: 0, hall: 0, hallOn: false, hallAt: 0 };
+  let hallLitCb = null;
+
+  // 골목 등롱 4쌍 — 대문 쪽으로 걸어가며 차례로 켜짐(오른쪽이 반 박자 늦게)
+  [17.5, 14.5, 11.5, 8.5].forEach((z, i) => {
+    for (const s of [-1, 1]) addLamp(scene, 2.85 * s, 2.25, z, i % 2 ? '#ff8f4a' : '#ffb36b', z + 1.6 - (s > 0 ? 0.45 : 0));
   });
-  const alleyLight = new THREE.PointLight('#ffa05a', 10, 18, 1.4);
-  alleyLight.position.set(0, 2.6, 11);
+  const alleyLight = new THREE.PointLight('#ffa05a', 0, 18, 1.4);
+  alleyLight.position.set(0, 2.6, 17);
   scene.add(alleyLight);
 
   // 마당 입구 문(솟을대문 느낌)
@@ -289,11 +324,14 @@ export function buildWorld(scene, today) {
     roof.position.set(0, 3.55, 4.3); roof.castShadow = true;
     gate.add(roof);
     const plate = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 0.55),
-      new THREE.MeshStandardMaterial({ map: textTex(['柳林門'], { size: 150 }), emissive: '#3a2a18', emissiveIntensity: 0.4 }));
+      (() => { const tex = textTex(['柳林門'], { size: 150 }); // 글자(금색)만 빛나도록 emissiveMap 사용
+        return new THREE.MeshStandardMaterial({ map: tex, emissiveMap: tex, emissive: '#ffd9a0', emissiveIntensity: 0, color: '#6b5a48' }); })());
     plate.position.set(0, 2.55, 4.52);
     gate.add(plate);
-    const l1 = lantern(-2.55, 2.3, 4.6), l2 = lantern(2.55, 2.3, 4.6);
-    gate.add(l1, l2);
+    stage.plateMesh = plate;
+    // 대문 등롱 한 쌍 — 대문 앞에 닿으면 현판과 함께 켜짐
+    addLamp(gate, -2.55, 2.3, 4.6, '#ffb36b', 6.4);
+    addLamp(gate, 2.55, 2.3, 4.6, '#ffb36b', 6.4);
     // 대문 아래를 지날 때 카메라를 가리지 않도록 반투명 처리 대상으로 등록
     gate.traverse((m) => {
       if (!m.isMesh) return;
@@ -330,16 +368,19 @@ export function buildWorld(scene, today) {
   hall.add(box(0.25, 3.2, 9.6, '#cdbfa2', 8.05, PLATFORM_H + 1.6, -9.0));
   // 창호(불 켜진 창살)
   const lattice = latticeTex();
+  const hallWindows = [];
   for (const x of [-5.6, 5.6]) {
     const win = new THREE.Mesh(new THREE.PlaneGeometry(2.4, 1.6),
-      new THREE.MeshStandardMaterial({ map: lattice, emissive: '#ffb860', emissiveIntensity: 0.55, emissiveMap: lattice }));
+      new THREE.MeshStandardMaterial({ map: lattice, emissive: '#ffb860', emissiveIntensity: 0.03, emissiveMap: lattice, color: '#7a6a58' }));
+    win.userData.full = 0.55; hallWindows.push(win.material);
     win.position.set(x, PLATFORM_H + 1.9, -13.8);
     hall.add(win);
   }
   // 바깥에서 보이는 옆벽 창
   for (const s of [-1, 1]) {
     const win = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 1.4),
-      new THREE.MeshStandardMaterial({ map: lattice, emissive: '#ffb860', emissiveIntensity: 0.7, emissiveMap: lattice }));
+      new THREE.MeshStandardMaterial({ map: lattice, emissive: '#ffb860', emissiveIntensity: 0.03, emissiveMap: lattice, color: '#7a6a58' }));
+    hallWindows.push(win.material);
     win.position.set(8.2 * s, PLATFORM_H + 1.8, -8.5);
     win.rotation.y = s * Math.PI / 2;
     hall.add(win);
@@ -367,13 +408,14 @@ export function buildWorld(scene, today) {
   hall.add(roofGroup);
 
   // 실내 조명
-  const warm = new THREE.PointLight('#ffb871', 14, 16, 1.5);
+  const warm = new THREE.PointLight('#ffb871', 0, 16, 1.5); // 손님이 마당에 들어서면 켜짐
   warm.position.set(0, PLATFORM_H + 2.7, -8.5);
   hall.add(warm);
+  stage.warm = warm;
+  stage.windows = hallWindows;
   for (const x of [-7.1, 7.1]) {
-    const post = box(0.12, 1.2, 0.12, '#2b1d14', x, PLATFORM_H + 0.6, -5.1);
-    const l = lantern(x, PLATFORM_H + 1.35, -5.1, '#ffc27a');
-    hall.add(post, l);
+    hall.add(box(0.12, 1.2, 0.12, '#2b1d14', x, PLATFORM_H + 0.6, -5.1));
+    addLamp(hall, x, PLATFORM_H + 1.35, -5.1, '#ffc27a', 3.4, PLATFORM_H);
   }
 
   // 유림거사 자리: 병풍 + 긴 서안(가운데 서책, 양옆에 분야별 소품) — 손님은 앞에서 바로 고릅니다
@@ -537,7 +579,54 @@ export function buildWorld(scene, today) {
     Object.values(topicProps).forEach((p, i) => { p.rotation.y = (p.userData.baseRotY || 0) + Math.sin(t * 0.7 + i) * 0.35; });
   });
 
-  return { anim, fadeables, gateFade, npcs, clickTargets: [ground, alley, yard, maru] };
+  // 유림거사는 처음엔 서책에 고개를 숙이고 있다가, 서재에 불이 들어오면 고개를 듭니다
+  const yurimBody = yurim.userData.body;
+  yurimBody.rotation.x = 0.24;
+
+  const flare = (on, at, t) => (on ? Math.max(0, 1 - (t - at) / 0.6) : 0);
+  function updateLights(pz, t, dt) {
+    let litZ = 0, litN = 0;
+    for (const L of lamps) {
+      if (!L.on && pz < L.trigger) { L.on = true; L.at = t; }
+      L.level += ((L.on ? 1 : 0) - L.level) * Math.min(1, dt * 3.5);
+      const f = flare(L.on, L.at, t);
+      const flick = L.on ? Math.sin(t * 3 + L.seed) * 0.08 + Math.sin(t * 11.3 + L.seed) * 0.04 : 0;
+      const mat = L.paper.material;
+      mat.emissiveIntensity = 0.03 + L.level * (0.8 + flick) + f * 0.9;
+      mat.color.copy(DARK).lerp(L.lit, L.level);
+      L.halo.material.opacity = L.level * 0.5 + f * 0.45;
+      L.halo.scale.setScalar(1.8 + f * 0.9);
+      L.pool.material.opacity = L.level * 0.3;
+      if (L.on && L.z > 5) { litZ += L.z; litN++; }
+    }
+    // 골목 빛: 켜진 등롱 수만큼 밝아지고, 불빛이 있는 쪽으로 따라감
+    alleyLight.intensity += ((litN / 8) * 10 - alleyLight.intensity) * Math.min(1, dt * 3);
+    if (litN) alleyLight.position.z += (litZ / litN - alleyLight.position.z) * Math.min(1, dt * 2);
+
+    // 柳林門 현판
+    if (!stage.gateOn && pz < 6.4) { stage.gateOn = true; stage.gateAt = t; }
+    stage.gate += ((stage.gateOn ? 1 : 0) - stage.gate) * Math.min(1, dt * 2.5);
+    const plateMat = stage.plateMesh.material;
+    plateMat.emissiveIntensity = stage.gate * 1.1 + flare(stage.gateOn, stage.gateAt, t) * 1.2;
+    plateMat.color.setRGB(0.42 + stage.gate * 0.58, 0.35 + stage.gate * 0.65, 0.28 + stage.gate * 0.72);
+
+    // 서재: 마당에 들어서면 천천히(약 1.5초) 밝아짐
+    if (!stage.hallOn && pz < 3.4) { stage.hallOn = true; stage.hallAt = t; if (hallLitCb) setTimeout(hallLitCb, 900); }
+    stage.hall += ((stage.hallOn ? 1 : 0) - stage.hall) * Math.min(1, dt * 1.6);
+    stage.warm.intensity = stage.hall * 14;
+    for (const m of stage.windows) {
+      m.emissiveIntensity = 0.03 + stage.hall * 0.62;
+      m.color.setRGB(0.48 + stage.hall * 0.52, 0.42 + stage.hall * 0.58, 0.35 + stage.hall * 0.65);
+    }
+    // 고개 들기(불이 들어오고 0.7초 뒤)
+    const up = stage.hallOn ? Math.min(1, Math.max(0, (t - stage.hallAt - 0.7) / 0.8)) : 0;
+    yurimBody.rotation.x = 0.24 * (1 - up * up * (3 - 2 * up));
+  }
+
+  return {
+    anim, fadeables, gateFade, npcs, clickTargets: [ground, alley, yard, maru],
+    updateLights, onHallLit: (fn) => { hallLitCb = fn; }, isHallLit: () => stage.hallOn,
+  };
 }
 
 // ── 분야별 소품 ───────────────────────────────────
