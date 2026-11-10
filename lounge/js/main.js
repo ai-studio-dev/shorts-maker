@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=7';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=7';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=8';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=8';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=7';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=7';
+} from './saju.js?v=8';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=8';
 
 const $ = (s) => document.querySelector(s);
 
@@ -426,6 +426,22 @@ $('#ilju-saju').addEventListener('click', () => { iljuCard.hidden = true; openSe
 // ── 입장 / 내 정보 ───────────────────────────────
 const intro = $('#intro');
 const form = $('#intro-form');
+// 휴대폰에서 입력칸을 누르면 키보드에 가리지 않게 그 칸을 화면 위쪽으로 올립니다
+// (앱 안 브라우저는 키보드가 떠도 화면 높이를 줄이지 않아 직접 올려야 함)
+const isTouch = window.matchMedia('(pointer: coarse)').matches || window.innerWidth < 700;
+function liftField(el) {
+  if (!isTouch) return;
+  intro.classList.add('is-typing');
+  const target = el.closest('.birth') || el;
+  setTimeout(() => {
+    const vv = window.visualViewport;
+    const viewTop = vv ? vv.offsetTop : 0;
+    const top = target.getBoundingClientRect().top - viewTop;
+    const want = Math.min(110, window.innerHeight * 0.15);
+    if (Math.abs(top - want) > 8) intro.scrollBy({ top: top - want, behavior: 'smooth' });
+  }, 280);
+}
+intro.addEventListener('focusin', (e) => { if (e.target.matches('input')) liftField(e.target); });
 let started = false;
 function openProfile() {
   closeDialog();
@@ -460,6 +476,8 @@ function enter(withProfile) {
   }
   applyLook();
   intro.hidden = true;
+  intro.classList.remove('is-typing');
+  intro.scrollTop = 0;
   if (!started) {
     started = true;
     document.body.classList.add('is-started');

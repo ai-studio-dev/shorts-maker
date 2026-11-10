@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildPerson } from './avatar.js?v=7';
-import { SAJU_TOPICS } from './config.js?v=7';
+import { buildPerson } from './avatar.js?v=8';
+import { SAJU_TOPICS } from './config.js?v=8';
 
 // ────────────────────────────────────────────────
 // 「유림거사 서재」 월드
