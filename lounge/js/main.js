@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=6';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=6';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=7';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=7';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=6';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=6';
+} from './saju.js?v=7';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=7';
 
 const $ = (s) => document.querySelector(s);
 
@@ -439,6 +439,15 @@ function enter(withProfile) {
   if (withProfile) {
     const birth = readBirth();
     form.birth.value = birth;
+    // 생년월일을 비운 채 처음 누르면 한 번 안내하고, 한 번 더 누르면 그대로 들여보냄
+    if (!birth && !skipBirthAsked) {
+      skipBirthAsked = true;
+      birthMsg.innerHTML = '생년월일을 넣으면 내 <b>일주</b>에 맞는 옷을 입고 들어가요.<br>그냥 들어가시려면 버튼을 한 번 더 눌러주세요.';
+      birthMsg.hidden = false;
+      birthMsg.classList.add('is-info');
+      form.by.focus();
+      return;
+    }
     if (birth) {
       const [y, mo, d] = birthBoxes.map((b) => b.value.trim());
       if (y.length !== 4) return birthError('태어난 해를 4자리로 넣어주세요. 예: 1987', form.by);
@@ -460,6 +469,7 @@ function enter(withProfile) {
 // 생년월일: 연도 4칸 · 월 2칸 · 일 2칸 (휴대폰 달력에서 연도를 거슬러 올라가지 않아도 되게)
 const birthBoxes = [form.by, form.bm, form.bd];
 const birthMsg = $('#birth-msg');
+let skipBirthAsked = false;
 const pad2 = (s) => (s.length === 1 ? '0' + s : s);
 function readBirth() {
   const [y, mo, d] = birthBoxes.map((b) => b.value.trim());
@@ -477,6 +487,7 @@ function isRealDate(s) {
   return dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d && dt <= new Date();
 }
 function birthError(text, box) {
+  birthMsg.classList.remove('is-info');
   birthMsg.textContent = text;
   birthMsg.hidden = !text;
   birthBoxes.forEach((b) => b.classList.toggle('is-bad', !!text && (!box || b === box)));

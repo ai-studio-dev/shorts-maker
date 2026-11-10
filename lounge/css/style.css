@@ -115,6 +115,9 @@ body:not(.is-started) .bubble, body:not(.is-started) .nametag { display: none !i
 .intro__form .birth__cell { display: flex; flex-direction: row; align-items: center; gap: 6px; color: var(--ink-dim); font-size: 14px; }
 .birth__cell input { flex: 1; min-width: 0; width: 100%; padding-left: 4px; padding-right: 4px; text-align: center; font-size: 17px; letter-spacing: 0.04em; font-variant-numeric: tabular-nums; }
 .birth__cell input.is-bad { border-color: #e2725b; }
+.birth__cell input::placeholder { color: #b9b2a3; opacity: 0.55; letter-spacing: 0.12em; font-size: 14px; }
+.birth__msg.is-info { color: var(--ink-dim); line-height: 1.6; }
+.birth__msg.is-info b { color: var(--ink); }
 .birth__msg { margin: 6px 0 0; color: #f0a08f; font-size: 13px; }
 .intro__form input:focus { outline: 2px solid var(--gold); outline-offset: 1px; }
 
