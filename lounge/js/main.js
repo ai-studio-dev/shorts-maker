@@ -1,11 +1,11 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=10';
-import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=10';
+import { buildWorld, walkable, heightAt, inAlley } from './world.js?v=12';
+import { buildPlayer, animatePerson, recolorPerson } from './avatar.js?v=12';
 import {
   iljuFromBirth, todayPillar, dayRelation,
   ELEMENT_COLORS, ELEMENT_HANJA, ELEMENT_NATURE,
-} from './saju.js?v=10';
-import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=10';
+} from './saju.js?v=12';
+import { LINKS, OPEN_IN_NEW_TAB, SAJU_TOPICS, TOPIC_GROUPS } from './config.js?v=12';
 
 const $ = (s) => document.querySelector(s);
 
@@ -231,7 +231,7 @@ function updateCamera(dt) {
   else camera.clearViewOffset();
   // 서재 앞마당부터는 지붕·현판을, 대문 근처에서는 대문을 투명하게
   fade(world.fadeables, indoor ? 0 : p.z < 0.5 ? 0.3 : 1, dt);
-  fade(world.gateFade, p.z > -4.5 && p.z < 4.4 ? 0.15 : 1, dt);
+  fade(world.gateFade, p.z > -4.5 && p.z < 4.4 ? 0 : 1, dt); // 마당 안에선 대문·앞 담장을 완전히 감춤
 }
 function fade(mats, target, dt) {
   for (const m of mats) {

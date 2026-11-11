@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.min.js';
-import { buildPerson } from './avatar.js?v=10';
-import { SAJU_TOPICS } from './config.js?v=10';
+import { buildPerson } from './avatar.js?v=12';
+import { SAJU_TOPICS } from './config.js?v=12';
 
 // ────────────────────────────────────────────────
 // 「유림거사 서재」 월드
@@ -592,9 +592,11 @@ export function buildWorld(scene, today) {
       const f = flare(L.on, L.at, t);
       const flick = L.on ? Math.sin(t * 3 + L.seed) * 0.08 + Math.sin(t * 11.3 + L.seed) * 0.04 : 0;
       const mat = L.paper.material;
-      mat.emissiveIntensity = 0.03 + L.level * (0.8 + flick) + f * 0.9;
+      // 대문처럼 반투명해진 곳의 등롱은 빛도 같이 줄여 허공에 떠 보이지 않게
+      const vis = mat.transparent ? mat.opacity : 1;
+      mat.emissiveIntensity = (0.03 + L.level * (0.8 + flick) + f * 0.9) * vis;
       mat.color.copy(DARK).lerp(L.lit, L.level);
-      L.halo.material.opacity = L.level * 0.5 + f * 0.45;
+      L.halo.material.opacity = (L.level * 0.5 + f * 0.45) * vis;
       L.halo.scale.setScalar(1.8 + f * 0.9);
       L.pool.material.opacity = L.level * 0.3;
       if (L.on && L.z > 5) { litZ += L.z; litN++; }
@@ -607,7 +609,7 @@ export function buildWorld(scene, today) {
     if (!stage.gateOn && pz < 6.4) { stage.gateOn = true; stage.gateAt = t; }
     stage.gate += ((stage.gateOn ? 1 : 0) - stage.gate) * Math.min(1, dt * 2.5);
     const plateMat = stage.plateMesh.material;
-    plateMat.emissiveIntensity = stage.gate * 1.1 + flare(stage.gateOn, stage.gateAt, t) * 1.2;
+    plateMat.emissiveIntensity = (stage.gate * 1.1 + flare(stage.gateOn, stage.gateAt, t) * 1.2) * plateMat.opacity;
     plateMat.color.setRGB(0.42 + stage.gate * 0.58, 0.35 + stage.gate * 0.65, 0.28 + stage.gate * 0.72);
 
     // 서재: 마당에 들어서면 천천히(약 1.5초) 밝아짐
